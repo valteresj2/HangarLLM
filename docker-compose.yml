@@ -1,0 +1,87 @@
+# HangarLLM local stack: gateway + admin UI, Postgres, Redis and Prometheus.
+#
+#   cp .env.example .env    # then set HANGARLLM_MASTER_KEY and HANGARLLM_SALT_KEY
+#   docker compose up -d --build
+#
+# Admin UI: http://localhost:4000/ui   API: http://localhost:4000   Prometheus: http://localhost:9090
+services:
+  hangarllm:
+    build:
+      context: .
+      target: runtime
+      args:
+        # ui-prebuilt reuses the committed bundle in litellm/proxy/_experimental/out;
+        # set HANGARLLM_UI_STAGE=ui-builder to compile the dashboard inside the image.
+        UI_STAGE: ${HANGARLLM_UI_STAGE:-ui-prebuilt}
+    image: ghcr.io/hangarllm/hangarllm:local
+    ports:
+      - "${HANGARLLM_PORT:-4000}:4000"
+    environment:
+      DATABASE_URL: "postgresql://hangarllm:${POSTGRES_PASSWORD:-hangarllm}@db:5432/hangarllm"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      STORE_MODEL_IN_DB: "True"
+    env_file:
+      - path: .env
+        required: false
+    # To start from a config file instead of the UI:
+    # volumes:
+    #   - ./config.yaml:/app/config.yaml:ro
+    # command: ["--config", "/app/config.yaml", "--port", "4000"]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness')"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: hangarllm
+      POSTGRES_USER: hangarllm
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hangarllm}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d hangarllm -U hangarllm"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    volumes:
+      - prometheus_data:/prometheus
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
+  postgres_data:
+    name: hangarllm_postgres_data

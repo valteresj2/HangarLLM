@@ -1,0 +1,69 @@
+# HangarLLM quickstart: the gateway with the admin UI, Postgres for models, keys and
+# spend logs, Redis for shared rate limits and caching, and Prometheus for metrics.
+#
+#   printf 'HANGARLLM_MASTER_KEY=sk-%s\nHANGARLLM_SALT_KEY=sk-%s\n' "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" > .env
+#   docker compose -f docker-compose.quickstart.yml up -d
+#
+# Keep .env. Regenerating HANGARLLM_SALT_KEY makes credentials already stored in the
+# database unreadable. Pin the image to a release tag for anything beyond evaluation.
+services:
+  hangarllm:
+    image: ghcr.io/hangarllm/hangarllm:latest
+    ports:
+      - "${HANGARLLM_BIND:-}${HANGARLLM_PORT:-4000}:4000"
+    environment:
+      HANGARLLM_MASTER_KEY: ${HANGARLLM_MASTER_KEY:?set it in .env - see the header of this file}
+      HANGARLLM_SALT_KEY: ${HANGARLLM_SALT_KEY:?set it in .env - see the header of this file}
+      DATABASE_URL: postgresql://hangarllm:${POSTGRES_PASSWORD:-hangarllm}@db:5432/hangarllm
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      STORE_MODEL_IN_DB: "True"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: hangarllm
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hangarllm}
+      POSTGRES_DB: hangarllm
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hangarllm"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    command: ["--config.file=/etc/prometheus/prometheus.yml"]
+    configs:
+      - source: prometheus_config
+        target: /etc/prometheus/prometheus.yml
+    ports:
+      - "${HANGARLLM_BIND:-}9090:9090"
+
+configs:
+  prometheus_config:
+    content: |
+      global:
+        scrape_interval: 15s
+      scrape_configs:
+        - job_name: hangarllm
+          static_configs:
+            - targets: ["hangarllm:4000"]
+
+volumes:
+  postgres_data:

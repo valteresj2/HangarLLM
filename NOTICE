@@ -1,0 +1,29 @@
+HangarLLM
+Copyright (c) 2026 HangarLLM contributors
+
+HangarLLM is a fork of LiteLLM (https://github.com/BerriAI/litellm), taken at
+upstream commit 709b27e2688d229ae39fc79a9332583de84d3c30 (LiteLLM v1.110.0).
+The forked code is used under the MIT License, Copyright (c) 2023 Berri AI.
+That copyright notice and permission notice are kept in the LICENSE file.
+
+Upstream LiteLLM also ships an "enterprise/" directory under a separate
+commercial license (the BerriAI Enterprise License). That directory was NOT
+copied into HangarLLM, and no code from it is distributed here. The features
+it provided (email alerting, PagerDuty, secret detection, moderation and
+keyword guardrails, audit log endpoints, custom SSO and auth hooks, managed
+files and vector stores, batch and responses cost tracking, and others) were
+reimplemented independently for HangarLLM and are released under the MIT
+License together with the rest of this repository.
+
+The license-key gate that upstream applied to "premium" features in the MIT
+licensed code was removed. Every feature is available to every deployment.
+
+"LiteLLM" is a name and trademark of BerriAI, Inc. HangarLLM is not affiliated
+with, endorsed by, or sponsored by BerriAI. The name is used here only to
+describe where the code came from and to document compatibility.
+
+Third party assets:
+  - Lucide icons (https://lucide.dev), ISC License.
+  - Provider logos under ui/litellm-dashboard/public/assets/logos remain the
+    property of their respective owners and are used only to identify those
+    providers.

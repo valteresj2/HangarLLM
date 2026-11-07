@@ -1,0 +1,78 @@
+name: HangarLLM CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Lint and fast tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-uv-with-retries
+        with:
+          version: "0.10.9"
+
+      - name: Cache the Rust build
+        uses: ./.github/actions/cache-cargo-build
+
+      - name: Install dependencies (builds the Rust extension)
+        run: uv sync --frozen --group proxy-dev --extra proxy
+
+      - name: Ruff
+        run: uv run --no-sync ruff check litellm hangarllm litellm_cli
+
+      - name: Import smoke test
+        run: |
+          uv run --no-sync python -c "import hangarllm, litellm; assert hangarllm is litellm"
+          uv run --no-sync hangarllm --help > /dev/null
+
+      - name: Fast unit tests
+        run: >
+          uv run --no-sync pytest -q -x --timeout=120
+          -p no:rerunfailures
+          tests/unit/test_utils.py
+          tests/hangar
+
+  ui:
+    name: Admin UI typecheck and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ui/litellm-dashboard
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version-file: ui/litellm-dashboard/.nvmrc
+          cache: npm
+          cache-dependency-path: ui/litellm-dashboard/package-lock.json
+
+      - run: npm ci
+        env:
+          npm_config_fund: "false"
+          npm_config_audit: "false"
+
+      - run: npm run typecheck
+
+      - run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"

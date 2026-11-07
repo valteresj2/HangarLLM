@@ -1,0 +1,9 @@
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+
+import _native_stub  # noqa: E402
+
+_native_stub.install()
