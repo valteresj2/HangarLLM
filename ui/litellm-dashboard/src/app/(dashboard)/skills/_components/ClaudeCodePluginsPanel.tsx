@@ -1,7 +1,7 @@
 import type { SkillListQuery } from "@/components/claude_code_plugins/types";
 import { SkillFilters } from "@/components/claude_code_plugins/SkillFilters";
 import { useSkillFilters, skillSortQuery } from "@/components/claude_code_plugins/skillCatalog";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { Trans, useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,10 @@ import { toast } from "@/lib/toast";
 import { isPendingSkill, type SkillHubSkill, type SkillMutationResponse } from "@/components/claude_code_plugins/types";
 import { useUrlTab } from "@/hooks/useUrlTab";
 import SkillSubmissions from "./SkillSubmissions";
+import GitSyncAttentionBanner from "./git_sync/GitSyncAttentionBanner";
+import { GIT_SYNC_TAB, GitSyncTabContent, GitSyncTabTrigger } from "./git_sync/GitSyncTab";
+import { managedSkillOwners } from "./git_sync/attention";
+import { useGitSources } from "./git_sync/useGitSources";
 
 interface ClaudeCodePluginsPanelProps {
   accessToken: string | null;
@@ -33,7 +37,10 @@ interface ClaudeCodePluginsPanelProps {
 
 const scanResultFilter = (scan: string): boolean | undefined => (scan === "all" ? undefined : scan === "yes");
 
-const SKILLS_TABS = ["skills", "submissions"] as const;
+const SKILLS_TABS = ["skills", "submissions", GIT_SYNC_TAB] as const;
+
+const toSkillsTab = (value: unknown): (typeof SKILLS_TABS)[number] =>
+  SKILLS_TABS.find((candidate) => candidate === value) ?? "skills";
 
 function skillPermissions(accessToken: string | null, userRole: string, isViewOnly: boolean) {
   const readOnly =
@@ -53,6 +60,7 @@ interface CatalogSkillDetailProps {
   queryScope: QueryKey;
   canWrite: boolean;
   isAdmin: boolean;
+  managedBy?: string;
   onBack: () => void;
   onEdit: (skill: SkillHubSkill) => void;
 }
@@ -63,6 +71,7 @@ function CatalogSkillDetail({
   queryScope,
   canWrite,
   isAdmin,
+  managedBy,
   onBack,
   onEdit,
 }: CatalogSkillDetailProps) {
@@ -72,6 +81,8 @@ function CatalogSkillDetail({
     queryFn: () => getSkillHubSkill(accessToken!, skill.name),
     enabled: Boolean(accessToken),
   });
+  const detailReady = detail.isSuccess && !detail.isFetching;
+  const editable = canWrite && !managedBy && detailReady ? detail.data : undefined;
   return (
     <>
       {detail.isError && (
@@ -87,7 +98,7 @@ function CatalogSkillDetail({
         onBack={onBack}
         accessToken={accessToken}
         isAdmin={isAdmin}
-        onEditClick={canWrite && detail.isSuccess && !detail.isFetching ? () => onEdit(detail.data) : undefined}
+        onEditClick={editable ? () => onEdit(editable) : undefined}
       />
     </>
   );
@@ -130,6 +141,8 @@ const SkillsPanelContent: React.FC<ClaudeCodePluginsPanelProps> = ({
   });
   const pluginsList = plugins.data?.skills ?? [];
   const selectedSkill = pluginsList.find((plugin) => plugin.id === selectedSkillId);
+  const gitSources = useGitSources(accessToken, isAdmin);
+  const managedSkills = useMemo(() => managedSkillOwners(gitSources.sources), [gitSources.sources]);
   const refreshSkills = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: queryScope, refetchType: "all" }),
@@ -174,6 +187,7 @@ const SkillsPanelContent: React.FC<ClaudeCodePluginsPanelProps> = ({
           accessToken={accessToken}
           queryScope={queryScope}
           canWrite={canWrite}
+          managedBy={managedSkills.get(selectedSkill.name)}
           onBack={() => setSelectedSkillId(null)}
           onEdit={setEditingSkill}
         />
@@ -189,12 +203,19 @@ const SkillsPanelContent: React.FC<ClaudeCodePluginsPanelProps> = ({
             </div>
           </div>
 
-          <Tabs value={tab} onValueChange={(value) => setTab(value === "submissions" ? "submissions" : "skills")}>
+          <GitSyncAttentionBanner
+            enabled={isAdmin}
+            sources={gitSources.sources}
+            onReview={() => setTab(GIT_SYNC_TAB)}
+          />
+
+          <Tabs value={tab} onValueChange={(value) => setTab(toSkillsTab(value))}>
             <TabsList variant="line">
               <TabsTrigger value="skills">{t("skills.panel.tabs.skills")}</TabsTrigger>
               <TabsTrigger value="submissions">
                 {t(adminView ? "skills.panel.tabs.submissions" : "skills.panel.tabs.mySubmissions")}
               </TabsTrigger>
+              <GitSyncTabTrigger enabled={isAdmin} />
             </TabsList>
             <TabsContent value="skills">
               <div className="my-4">
@@ -216,6 +237,7 @@ const SkillsPanelContent: React.FC<ClaudeCodePluginsPanelProps> = ({
                 onSortingChange={onSortingChange}
                 onDeleteClick={handleDeleteClick}
                 isAdmin={isAdmin}
+                managedSkills={managedSkills}
                 onPluginClick={setSelectedSkillId}
               />
               <div className="mt-4 flex items-center justify-end gap-3">
@@ -247,6 +269,12 @@ const SkillsPanelContent: React.FC<ClaudeCodePluginsPanelProps> = ({
                 />
               )}
             </TabsContent>
+            <GitSyncTabContent
+              accessToken={accessToken}
+              enabled={isAdmin}
+              gitSources={gitSources}
+              onSkillsChanged={refreshSkills}
+            />
           </Tabs>
         </>
       )}

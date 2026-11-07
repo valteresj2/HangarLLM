@@ -214,6 +214,7 @@ beforeEach(() => {
         next_offset: null,
       });
     if (path === "/skill-hub/submissions") return respondToSubmissionsPage(url);
+    if (path === "/skill-hub/git-sources") return Response.json({ sources: [] });
     if (path.endsWith("/archive")) return new Response("zip-bytes", { headers: { "Content-Type": "application/zip" } });
     if (path === `/skill-hub/submissions/${pending.id}`)
       return Response.json({ submission: submissions[0], current_skill: catalog[0] });
@@ -246,7 +247,7 @@ it.each(["current", "retained"])("refreshes published counts after a %s download
   URL.createObjectURL = vi.fn(() => "blob:skill-download");
   renderWithProviders(<ClaudeCodePluginsPanel accessToken="admin-token" userRole="Admin" />);
   expect(await screen.findByRole("cell", { name: "0" })).toBeInTheDocument();
-  expect(fetchMock).toHaveBeenCalledOnce();
+  expect(catalogRequests).toHaveLength(1);
   fireEvent.click(screen.getByText(published.name));
   await screen.findByRole("button", { name: "Edit Skill" });
   if (kind === "retained") fireEvent.click(screen.getByRole("tab", { name: "Version history" }));

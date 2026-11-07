@@ -152,6 +152,21 @@ import type {
   ExportType,
   ModelTopKeysResponse,
 } from "./UsagePage/dailyActivityApi";
+import type {
+  BranchList,
+  BranchQuery,
+  GitConnection,
+  GitSource,
+  GitSourceCreate,
+  GitSourceCreated,
+  GitSourceList,
+  GitSourceUpdate,
+  GitSync,
+  GitSyncList,
+  RepositoryList,
+  SyncDecision,
+  WebhookSetup,
+} from "./claude_code_plugins/gitSyncTypes";
 import { resolveApiBase } from "@/lib/http/resolveApiBase";
 import {
   registerAuthHeaderNameGetter,
@@ -6929,6 +6944,40 @@ export const uploadSkillHubSkill = (
 
 export const deleteSkillHubSkill = (accessToken: string, name: string) =>
   apiClient.delete(`/skill-hub/skills/${encodeURIComponent(name)}`, { accessToken });
+
+const gitSourcePath = (sourceId: string) => `/skill-hub/git-sources/${encodeURIComponent(sourceId)}`;
+
+export const listGitSkillSources = (accessToken: string) =>
+  apiClient.get<GitSourceList>("/skill-hub/git-sources", { accessToken });
+
+export const discoverGitRepositories = (accessToken: string, connection: GitConnection) =>
+  apiClient.post<RepositoryList>("/skill-hub/git-sources/discover/repositories", { accessToken, body: connection });
+
+export const discoverGitBranches = (accessToken: string, query: BranchQuery) =>
+  apiClient.post<BranchList>("/skill-hub/git-sources/discover/branches", { accessToken, body: query });
+
+export const createGitSkillSource = (accessToken: string, body: GitSourceCreate) =>
+  apiClient.post<GitSourceCreated>("/skill-hub/git-sources", { accessToken, body });
+
+export const updateGitSkillSource = (accessToken: string, sourceId: string, body: GitSourceUpdate) =>
+  apiClient.patch<GitSource>(gitSourcePath(sourceId), { accessToken, body });
+
+export const deleteGitSkillSource = (accessToken: string, sourceId: string, unpublishSkills: boolean) =>
+  apiClient.delete(gitSourcePath(sourceId), { accessToken, query: { unpublish_skills: unpublishSkills } });
+
+export const syncGitSkillSource = (accessToken: string, sourceId: string) =>
+  apiClient.post<GitSync>(`${gitSourcePath(sourceId)}/sync`, { accessToken });
+
+export const listGitSkillSyncs = (accessToken: string, sourceId: string, limit = 20) =>
+  apiClient.get<GitSyncList>(`${gitSourcePath(sourceId)}/syncs`, { accessToken, query: { limit } });
+
+export const decideGitSkillSync = (accessToken: string, sourceId: string, syncId: string, decision: SyncDecision) =>
+  apiClient.post<GitSync>(`${gitSourcePath(sourceId)}/syncs/${encodeURIComponent(syncId)}/${decision}`, {
+    accessToken,
+  });
+
+export const rotateGitSkillWebhookSecret = (accessToken: string, sourceId: string) =>
+  apiClient.post<WebhookSetup>(`${gitSourcePath(sourceId)}/webhook-secret/rotate`, { accessToken });
 
 export const listSkillSubmissions = (
   accessToken: string,

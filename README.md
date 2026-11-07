@@ -127,6 +127,17 @@ Every setting that upstream reads from a `LITELLM_*` environment variable also a
 | `REDIS_HOST`, `REDIS_PORT` | Shared cache, rate limits and router state across instances |
 | `HANGARLLM_LOCAL_MODEL_COST_MAP` | The bundled model price map is used at startup by default, so the gateway makes no outbound call to fetch prices. Set it to `false` to fetch the latest map from the network instead |
 | `HANGARLLM_DISABLED_FEATURES` | Comma separated list of features to switch off, for a leaner deployment |
+| `HANGARLLM_DISABLE_SKILL_GIT_SYNC` | Set to `true` to stop the background job that polls GitHub skill repositories |
+
+## Skills Hub Git Sync
+
+Connect the Skills Hub to your company's GitHub (or GitHub Enterprise Server) and treat a repository as the source of truth for agent skills. Open **Skills > GitHub Sync > Connect repository**, pick the credentials, the repository, the branch and the folder that holds the skills (one folder per skill, each with a `SKILL.md`), and HangarLLM does the rest.
+
+Every push to the branch is picked up through a webhook, with polling as a fallback, and the gateway re-applies the skills at that exact commit. Only one replica syncs at a time. Each skill is validated on its own before it reaches the hub. A skill with an invalid `SKILL.md`, a duplicate name, a symlink, a compiled binary, a secret or a dangerous shell pattern is quarantined, while the other skills still go out. When a skill that was already live breaks in a new commit, its last good version stays live. Anything unexpected is shown in a banner on the Skills page and in the per-commit sync report, and is sent to your configured Slack or webhook alerts (`skill_sync_alerts`).
+
+You choose how far the skills reach. **Access group** (recommended) keeps them private and adds them to the access group `git:<owner>/<repo>`, which you attach to the teams or keys that should get them. **All API keys** publishes them to every key. A repository can auto-publish every push, or hold each new commit until an admin approves it. Any earlier commit can be restored with one click. Skills that come from Git are read-only in the hub, so edits always go through the repository.
+
+For organizations, use a GitHub App with read-only *Contents* and *Metadata* permissions, installed on the repositories that hold skills. For a quick start, a fine-grained token with the same read-only access works too, and public repositories need no credentials at all.
 
 ## Migrating from LiteLLM
 

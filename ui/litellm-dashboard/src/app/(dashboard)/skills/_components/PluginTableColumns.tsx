@@ -3,14 +3,16 @@
 import { getSkillMetadataColumns } from "@/components/claude_code_plugins/SkillMetadataColumns";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { Copy, MoreHorizontal, Trash2 } from "lucide-react";
+import { Copy, GitBranch, MoreHorizontal, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { DataTableSortHeader } from "@/components/shared/DataTable";
 import { IdentityCell, StatusBadge } from "@/components/shared/table_cells";
 import i18n from "@/i18n/i18n";
 import { SkillHubSkill } from "@/components/claude_code_plugins/types";
+import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { SimpleTooltip } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,10 +26,22 @@ import { copyToClipboard } from "@/utils/dataUtils";
 interface PluginRowActionsProps {
   plugin: SkillHubSkill;
   isAdmin: boolean;
+  managed: boolean;
   onDeleteClick: (pluginName: string, displayName: string) => void;
 }
 
-function PluginRowActions({ plugin, isAdmin, onDeleteClick }: PluginRowActionsProps) {
+function ManagedSkillBadge({ source }: { source: string }) {
+  return (
+    <SimpleTooltip content={i18n.t("skills.gitSync.managedTooltip", { source })}>
+      <Badge variant="outline" className="border-primary/40 text-primary" data-testid="managed-skill-badge">
+        <GitBranch />
+        {i18n.t("skills.gitSync.managedBadge")}
+      </Badge>
+    </SimpleTooltip>
+  );
+}
+
+function PluginRowActions({ plugin, isAdmin, managed, onDeleteClick }: PluginRowActionsProps) {
   const { t } = useTranslation();
   return (
     <DropdownMenu>
@@ -46,7 +60,7 @@ function PluginRowActions({ plugin, isAdmin, onDeleteClick }: PluginRowActionsPr
           <Copy />
           {t("skills.table.actions.copyId")}
         </DropdownMenuItem>
-        {isAdmin && (
+        {isAdmin && !managed && (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -66,12 +80,14 @@ function PluginRowActions({ plugin, isAdmin, onDeleteClick }: PluginRowActionsPr
 
 interface PluginTableColumnsDeps {
   isAdmin: boolean;
+  managedSkills?: ReadonlyMap<string, string>;
   onPluginClick: (pluginId: string) => void;
   onDeleteClick: (pluginName: string, displayName: string) => void;
 }
 
 export const getPluginTableColumns = ({
   isAdmin,
+  managedSkills,
   onPluginClick,
   onDeleteClick,
 }: PluginTableColumnsDeps): ColumnDef<SkillHubSkill>[] => [
@@ -82,14 +98,20 @@ export const getPluginTableColumns = ({
     header: ({ column }) => <DataTableSortHeader column={column} title={i18n.t("skills.table.columns.name")} />,
     size: 220,
     enableSorting: true,
-    cell: ({ row }) => (
-      <IdentityCell
-        title={row.original.name}
-        titleClassName="font-mono text-xs font-normal"
-        className="max-w-60"
-        onClick={() => onPluginClick(row.original.id)}
-      />
-    ),
+    cell: ({ row }) => {
+      const managedBy = managedSkills?.get(row.original.name);
+      return (
+        <div className="flex items-center gap-2">
+          <IdentityCell
+            title={row.original.name}
+            titleClassName="font-mono text-xs font-normal"
+            className="max-w-60"
+            onClick={() => onPluginClick(row.original.id)}
+          />
+          {managedBy && <ManagedSkillBadge source={managedBy} />}
+        </div>
+      );
+    },
   },
   {
     id: "version",
@@ -155,7 +177,12 @@ export const getPluginTableColumns = ({
     enableHiding: false,
     cell: ({ row }) => (
       <div className="flex justify-end">
-        <PluginRowActions plugin={row.original} isAdmin={isAdmin} onDeleteClick={onDeleteClick} />
+        <PluginRowActions
+          plugin={row.original}
+          isAdmin={isAdmin}
+          managed={managedSkills?.has(row.original.name) ?? false}
+          onDeleteClick={onDeleteClick}
+        />
       </div>
     ),
   },

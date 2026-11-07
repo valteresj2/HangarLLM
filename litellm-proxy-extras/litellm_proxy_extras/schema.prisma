@@ -2168,3 +2168,53 @@ model LiteLLM_SubscriptionAccountTable {
 
   @@unique([custom_llm_provider, account_id], map: "LiteLLM_SubscriptionAccountTable_provider_account_key")
 }
+
+// HangarLLM Skills Hub Git Sync: a GitHub repository whose skills are synced into the hub
+model LiteLLM_SkillGitSource {
+  source_id             String    @id @default(uuid())
+  name                  String    @unique
+  api_base_url          String    @default("https://api.github.com")
+  owner                 String
+  repository            String
+  branch                String    @default("main")
+  skills_path           String    @default("")
+  auth_type             String    @default("token")
+  credentials           String?
+  app_id                String?
+  installation_id       String?
+  scope                 String    @default("access_group")
+  access_group_id       String?
+  publish_mode          String    @default("auto")
+  remove_policy         String    @default("unpublish")
+  auto_sync             Boolean   @default(true)
+  poll_interval_seconds Int       @default(300)
+  webhook_secret        String?
+  status                String    @default("never_synced")
+  status_message        String?
+  last_seen_sha         String?
+  applied_sha           String?
+  managed_skills        String[]  @default([])
+  quarantined_skills    String[]  @default([])
+  last_checked_at       DateTime?
+  last_synced_at        DateTime?
+  sync_lock_until       DateTime?
+  created_at            DateTime  @default(now())
+  created_by            String?
+  updated_at            DateTime  @default(now()) @updatedAt
+  updated_by            String?
+}
+
+// One sync attempt of a LiteLLM_SkillGitSource, with its validation report
+model LiteLLM_SkillGitSync {
+  sync_id      String    @id @default(uuid())
+  source_id    String
+  commit_sha   String?
+  trigger      String
+  status       String
+  report_json  String    @default("{}")
+  started_at   DateTime  @default(now())
+  finished_at  DateTime?
+  triggered_by String?
+
+  @@index([source_id, started_at(sort: Desc)])
+}

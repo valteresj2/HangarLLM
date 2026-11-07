@@ -104,6 +104,12 @@ async def write_target(
     existing: Final = await uploads.get_plugin(name)
     if updating and (existing is None or not (await resolve_skill_visibility(caller)).allows(existing)):
         return SkillMutationError(404, "Skill not found")
+    if updating:
+        from litellm.hangar.skill_sync.guard import git_source_managing, managed_message
+
+        managing: Final = await git_source_managing(name)
+        if managing is not None:
+            return SkillMutationError(409, managed_message(managing))
     if existing is not None and expected_updated_at is not None and existing.updated_at != expected_updated_at:
         return SkillMutationError(409, "The published skill changed. Reload it before submitting.")
     if not updating and existing is not None:

@@ -215,6 +215,9 @@ class AlertType(str, Enum):
     mcp_tool_description_blocked = "mcp_tool_description_blocked"
     mcp_pinned_tools_changed = "mcp_pinned_tools_changed"
 
+    # Skills Hub Git Sync
+    skill_sync_alerts = "skill_sync_alerts"
+
 
 DEFAULT_ALERT_TYPES: Final[list[AlertType]] = [
     # LLM related alerts
@@ -242,6 +245,8 @@ DEFAULT_ALERT_TYPES: Final[list[AlertType]] = [
     # MCP tool catalog alerts
     AlertType.mcp_tool_description_blocked,
     AlertType.mcp_pinned_tools_changed,
+    # Skills Hub Git Sync alerts
+    AlertType.skill_sync_alerts,
 ]
 
 

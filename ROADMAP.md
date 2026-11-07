@@ -47,6 +47,14 @@
 - **Dev local no Windows**: o pacote exige a extensão Rust `litellm.rust_bridge._native`. Sem o toolchain Rust (rustup + MSVC), rode via Docker. O fallback em Python puro está no P0.
 - Revisar o redator de segredos: agora ele trata qualquer chave `*token*` como credencial (números puros, como `max_tokens`, ficam de fora).
 
+### Skills Hub Git Sync (entregue)
+- Conexão com GitHub ou GitHub Enterprise via GitHub App, token fine-grained ou repositório público. Escolha de repositório, branch e pasta.
+- Sincronização por webhook (HMAC) com polling de reserva (ETag) e lock no banco para uma réplica por vez. Cada sync fica fixada no SHA do commit.
+- Validação por skill com quarentena: manifesto, nomes duplicados, symlinks, binários, segredos, comandos perigosos e frases de prompt injection. Se uma skill que já estava no ar quebra, a última versão boa continua ativa.
+- Escopo por grupo de acesso `git:<owner>/<repo>` ou para todas as chaves, modo automático ou com aprovação, rollback por commit e skills somente leitura no hub.
+- Comunicação por banner na UI, relatório por commit e alerta `skill_sync_alerts`.
+- Próximos passos: rodar o scanner externo (`skill_scanner`) dentro da sync, mostrar o diff entre commits na UI, adicionar GitLab e Bitbucket e enviar status check no PR ("skills válidas") antes do merge.
+
 ## 4. Roadmap priorizado
 
 ### P0 — fundação (próximas 2 a 4 semanas)

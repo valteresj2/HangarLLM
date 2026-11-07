@@ -121,4 +121,17 @@ describe("PluginTable", () => {
     expect(await screen.findByTestId("plugin-action-copy")).toBeInTheDocument();
     expect(screen.queryByTestId("plugin-action-delete")).not.toBeInTheDocument();
   });
+
+  it("marks skills managed by a GitHub repository and keeps admins from deleting them here", async () => {
+    const user = userEvent.setup();
+    render(<PluginTable {...defaultProps} managedSkills={new Map([["newer-skill", "acme/skills"]])} />);
+    expect(screen.getAllByTestId("managed-skill-badge")).toHaveLength(1);
+    expect(screen.getByRole("row", { name: /newer-skill/ })).toContainElement(
+      screen.getByTestId("managed-skill-badge"),
+    );
+
+    await user.click(screen.getByTestId("plugin-actions-newer-skill"));
+    expect(await screen.findByTestId("plugin-action-copy")).toBeInTheDocument();
+    expect(screen.queryByTestId("plugin-action-delete")).not.toBeInTheDocument();
+  });
 });

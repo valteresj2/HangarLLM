@@ -11957,6 +11957,20 @@ class ProxyStartupEvent:
                     )
         if _wants_cleanup_jobs(cleanup_settings):
             proxy_config.record_cleanup_schedule_attempt(cleanup_settings)
+        ### SKILLS HUB GIT SYNC ###
+        if prisma_client is not None and os.getenv("HANGARLLM_DISABLE_SKILL_GIT_SYNC", "").lower() != "true":
+            from litellm.hangar.skill_sync.service import poll_sources
+
+            scheduler.add_job(
+                poll_sources,
+                "interval",
+                seconds=60 + random.randint(0, 15),
+                args=[prisma_client],
+                id="hangar_skill_git_sync",
+                replace_existing=True,
+                misfire_grace_time=APSCHEDULER_MISFIRE_GRACE_TIME,
+                max_instances=1,
+            )
         ### CHECK BATCH COST ###
         if llm_router is not None and PROXY_BATCH_POLLING_ENABLED:
             try:

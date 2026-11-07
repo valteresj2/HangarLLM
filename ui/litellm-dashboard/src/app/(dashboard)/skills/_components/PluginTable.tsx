@@ -18,8 +18,11 @@ interface PluginTableProps {
   filtered?: boolean;
   onDeleteClick: (pluginName: string, displayName: string) => void;
   isAdmin: boolean;
+  managedSkills?: ReadonlyMap<string, string>;
   onPluginClick: (pluginId: string) => void;
 }
+
+const NO_MANAGED_SKILLS: ReadonlyMap<string, string> = new Map();
 
 function EmptyState({ filtered }: { filtered: boolean }) {
   const { t } = useTranslation();
@@ -46,14 +49,15 @@ const PluginTable: React.FC<PluginTableProps> = ({
   filtered = false,
   onDeleteClick,
   isAdmin,
+  managedSkills = NO_MANAGED_SKILLS,
   onPluginClick,
 }) => {
   const { t } = useTranslation();
 
-  const columns = useMemo(
-    () => getPluginTableColumns({ isAdmin, onPluginClick, onDeleteClick }),
-    [isAdmin, onPluginClick, onDeleteClick],
-  );
+  const columns = useMemo(() => {
+    const deps = { isAdmin, managedSkills, onPluginClick, onDeleteClick };
+    return getPluginTableColumns(deps);
+  }, [isAdmin, managedSkills, onPluginClick, onDeleteClick]);
 
   return (
     <DataTable

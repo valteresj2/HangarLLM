@@ -328,6 +328,11 @@ async def unpublish_skill(
 async def remove_skill(name: str, caller: Annotated[UserAPIKeyAuth, Depends(user_api_key_auth)]) -> Response:
     """Delete a skill and its managed archive."""
     _require_admin(caller)
+    from litellm.hangar.skill_sync.guard import git_source_managing, managed_message
+
+    managing: Final = await git_source_managing(name)
+    if managing is not None:
+        raise HTTPException(409, managed_message(managing))
     await delete_plugin(plugin_name=name, user_api_key_dict=caller)
     return Response(status_code=204)
 

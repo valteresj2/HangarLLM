@@ -12,6 +12,7 @@ vi.mock("@/components/networking", () => ({
   listSkillHubSkills: vi.fn(),
   getSkillHubSkill: vi.fn(),
   deleteSkillHubSkill: vi.fn(),
+  listGitSkillSources: vi.fn(() => Promise.resolve({ sources: [] })),
 }));
 
 vi.mock("./PluginTable", () => ({
